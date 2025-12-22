@@ -24,3 +24,7 @@ application/logs/*
 # IDE
 .vscode/
 .idea/
+
+
+error_log
+whereami.php

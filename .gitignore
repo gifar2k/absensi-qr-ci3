@@ -1,0 +1,26 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# CI3 sensitive
+application/config/database.php
+application/config/config.php
+application/config/email.php
+
+# ENV
+.env
+.env.*
+
+# Uploads
+uploads/
+assets/uploads/
+
+# Cache & logs
+application/cache/*
+application/logs/*
+!application/cache/index.html
+!application/logs/index.html
+
+# IDE
+.vscode/
+.idea/

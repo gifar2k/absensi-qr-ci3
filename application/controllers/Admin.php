@@ -427,38 +427,6 @@ public function logs_export()
     exit;
 }
 
-public function rekap()
-{
-    $this->guard_admin();
-    $this->load->model('Attendance_model', 'att');
-
-    $date_from = (string)$this->input->get('date_from', TRUE);
-    $date_to   = (string)$this->input->get('date_to', TRUE);
-
-    // default: 14 hari terakhir
-    if ($date_from === '' || $date_to === '') {
-        $date_to = date('Y-m-d');
-        $date_from = date('Y-m-d', strtotime('-13 days'));
-    }
-
-    $rows = $this->att->rekap_harian($date_from, $date_to);
-
-    $data = [
-        'title' => 'Rekap Harian',
-        'admin' => $this->admin_data(),
-        'rows'  => $rows,
-        'filter' => [
-            'date_from' => $date_from,
-            'date_to' => $date_to,
-        ]
-    ];
-
-    $this->load->view('admin/layout/header', $data);
-    $this->load->view('admin/layout/sidebar', $data);
-    $this->load->view('admin/rekap_harian', $data);
-    $this->load->view('admin/layout/footer', $data);
-}
-
 public function rekap_bulanan()
 {
     $this->guard_admin();
@@ -471,14 +439,16 @@ public function rekap_bulanan()
 
     $paket = $this->att->rekap_bulanan($month);
 
-    $data = [
-        'title' => 'Rekap Bulanan',
-        'admin' => $this->admin_data(),
-        'month' => $paket['month'],
-        'date_from' => $paket['date_from'],
-        'date_to' => $paket['date_to'],
-        'rows' => $paket['rows'],
-    ];
+$data = [
+  'title' => 'Rekap Bulanan',
+  'admin' => $this->admin_data(),
+  'month' => $paket['month'],
+  'date_from' => $paket['date_from'],
+  'date_to' => $paket['date_to'],
+  'rows' => $paket['rows'],           // detail per hari
+  'summary' => $paket['summary'] ?? [] // optional
+];
+
 
     $this->load->view('admin/layout/header', $data);
     $this->load->view('admin/layout/sidebar', $data);

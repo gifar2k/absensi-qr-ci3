@@ -210,12 +210,17 @@ public function rekap_bulanan(string $month): array
     $start = $month . '-01';
     $end = date('Y-m-t', strtotime($start));
 
-    // total IN/OUT per user per bulan
+    // DETAIL per user per workday_date + jam masuk/pulang
     $sql = "
-        SELECT 
+        SELECT
             u.id,
             u.name,
             u.email,
+            l.workday_date,
+
+            MIN(CASE WHEN l.status='IN'  THEN l.taken_at END) AS jam_masuk_dt,
+            MAX(CASE WHEN l.status='OUT' THEN l.taken_at END) AS jam_pulang_dt,
+
             SUM(CASE WHEN l.status='IN'  THEN 1 ELSE 0 END) AS total_in,
             SUM(CASE WHEN l.status='OUT' THEN 1 ELSE 0 END) AS total_out
         FROM users u
@@ -224,26 +229,61 @@ public function rekap_bulanan(string $month): array
          AND l.workday_date BETWEEN ? AND ?
         WHERE u.is_active = 1
           AND u.role NOT IN ('admin','superadmin')
-        GROUP BY u.id, u.name, u.email
-        ORDER BY u.name ASC
+        GROUP BY u.id, u.name, u.email, l.workday_date
+        HAVING l.workday_date IS NOT NULL
+        ORDER BY l.workday_date ASC, u.name ASC
     ";
+
     $rows = $this->db->query($sql, [$start, $end])->result_array();
 
-    // tambahan: "hari hadir" = jumlah IN (karena 1 IN per workday)
+    // rapihin output + status
     foreach ($rows as &$r) {
-        $r['hadir_hari'] = (int)$r['total_in'];
-        $r['pulang_hari'] = (int)$r['total_out'];
-        $r['belum_pulang_hari'] = max(0, (int)$r['total_in'] - (int)$r['total_out']);
+        $in  = $r['jam_masuk_dt'] ?? null;
+        $out = $r['jam_pulang_dt'] ?? null;
+
+        $r['jam_masuk']  = $in  ? date('H:i:s', strtotime($in))  : null;
+        $r['jam_pulang'] = $out ? date('H:i:s', strtotime($out)) : null;
+
+        if ($in && !$out) $r['status_hari'] = 'BELUM PULANG';
+        elseif ($in && $out) $r['status_hari'] = 'PULANG';
+        else $r['status_hari'] = 'BELUM MASUK';
+
+        unset($r['jam_masuk_dt'], $r['jam_pulang_dt']);
     }
     unset($r);
+
+    // SUMMARY per user (optional cards)
+    $summary = [];
+    foreach ($rows as $r) {
+        $uid = (int)$r['id'];
+        if (!isset($summary[$uid])) {
+            $summary[$uid] = [
+                'id' => $uid,
+                'name' => $r['name'],
+                'email' => $r['email'],
+                'hadir_hari' => 0,
+                'pulang_hari' => 0,
+                'belum_pulang_hari' => 0,
+            ];
+        }
+        // 1 IN per hari (karena kamu enforce)
+        if (!empty($r['jam_masuk'])) $summary[$uid]['hadir_hari']++;
+        if (!empty($r['jam_pulang'])) $summary[$uid]['pulang_hari']++;
+    }
+    foreach ($summary as &$s) {
+        $s['belum_pulang_hari'] = max(0, $s['hadir_hari'] - $s['pulang_hari']);
+    }
+    unset($s);
 
     return [
         'month' => $month,
         'date_from' => $start,
         'date_to' => $end,
-        'rows' => $rows,
+        'rows' => $rows,                 // detail per hari
+        'summary' => array_values($summary) // ringkas per user (opsional)
     ];
 }
+
 
 
 
